@@ -2,6 +2,7 @@ package com.zfw.screenshot.window;
 
 import android.content.Context;
 import android.graphics.PixelFormat;
+import android.os.Build;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -27,21 +28,24 @@ public class TouchWindow implements IWindow {
     private void init() {
         this.windowManager = ((WindowManager) this.context.getSystemService(Context.WINDOW_SERVICE));
         this.layoutParams = new WindowManager.LayoutParams();
-        this.layoutParams.type = WindowManager.LayoutParams.TYPE_PHONE;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            layoutParams.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY; // ✅
+        } else {
+            layoutParams.type = WindowManager.LayoutParams.TYPE_PHONE; // ✅
+        }
         this.layoutParams.format = PixelFormat.RGBA_8888;
         this.layoutParams.flags =
                 LayoutParams.FLAG_NOT_TOUCH_MODAL
                         | LayoutParams.FLAG_NOT_FOCUSABLE | LayoutParams.FLAG_NOT_TOUCHABLE
                         | LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
-
         this.floatView = LayoutInflater.from(this.context).inflate(R.layout.full_screen_float_window, null);
         this.floatView.setOnTouchListener(new View.OnTouchListener() {
             public boolean onTouch(View view, MotionEvent event) {
                 TouchWindow.this.listener.onTouchSuccess(event);
                 return false;
             }
-        });
-    }
+    });
+}
 
     public void close() {
         if (!this.isHide)

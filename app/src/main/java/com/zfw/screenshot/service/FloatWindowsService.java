@@ -38,9 +38,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 
+
 @TargetApi(Build.VERSION_CODES.LOLLIPOP)
 public class FloatWindowsService extends Service implements EventListener {
-
     public static final String TAG = "FloatWindowsService";
 
     private VirtualDisplay mVirtualDisplay;
@@ -74,19 +74,21 @@ public class FloatWindowsService extends Service implements EventListener {
         return null;
     }
 
+    
     private void createFloatView() {
         mGestureDetector = new GestureDetector(getApplicationContext(), new FloatGestureTouchListener());
-
-        mLayoutParams = new WindowManager.LayoutParams();
+        mLayoutParams = new WindowManager.LayoutParams(); // ✅ 正确变量名
         mWindowManager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-
         DisplayMetrics metrics = new DisplayMetrics();
         mWindowManager.getDefaultDisplay().getMetrics(metrics);
         mScreenDensity = metrics.densityDpi;
         mScreenWidth = metrics.widthPixels;
         mScreenHeight = metrics.heightPixels;
-
-        mLayoutParams.type = WindowManager.LayoutParams.TYPE_PHONE;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            mLayoutParams.type = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+        } else {
+            mLayoutParams.type = WindowManager.LayoutParams.TYPE_PHONE;
+        }
         mLayoutParams.format = PixelFormat.RGBA_8888;
         mLayoutParams.flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
         mLayoutParams.gravity = Gravity.LEFT | Gravity.TOP;
@@ -94,7 +96,6 @@ public class FloatWindowsService extends Service implements EventListener {
         mLayoutParams.y = mScreenHeight * 2 / 3 + PxUtils.dip2px(this, 60);
         mLayoutParams.width = PxUtils.dip2px(this, 60);
         mLayoutParams.height = PxUtils.dip2px(this, 60);
-
         mFloatView = new ImageView(getApplicationContext());
         mFloatView.setImageBitmap(BitmapFactory.decodeResource(getResources(), R.drawable.start));
         mFloatView.setOnTouchListener(new View.OnTouchListener() {
@@ -103,9 +104,7 @@ public class FloatWindowsService extends Service implements EventListener {
                 return mGestureDetector.onTouchEvent(event);
             }
         });
-
-        mWindowManager.addView(mFloatView, mLayoutParams);
-
+        mWindowManager.addView(mFloatView, mLayoutParams); // ✅ 使用正确变量
     }
 
     // 截图结束的标记
@@ -280,14 +279,15 @@ public class FloatWindowsService extends Service implements EventListener {
                 finalImage.recycle();
                 finalImage = null;
 
-                new Handler().postDelayed(new Runnable() {
-                    @Override
-                    public void run() {
-                        Intent localIntent = new Intent(FloatWindowsService.this, MainActivity.class);
-                        localIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        FloatWindowsService.this.startActivity(localIntent);
-                    }
-                }, 500L);
+//                Backgroud activity not allowed
+//                new Handler().postDelayed(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        Intent localIntent = new Intent(FloatWindowsService.this, MainActivity.class);
+//                        localIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+//                        FloatWindowsService.this.startActivity(localIntent);
+//                    }
+//                }, 500L);
             }
         }
     }
