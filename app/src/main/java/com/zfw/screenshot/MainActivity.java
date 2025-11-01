@@ -95,8 +95,17 @@ public class MainActivity extends AppCompatActivity {
         switch (requestCode) {
             case REQUEST_MEDIA_PROJECTION:
                 if (resultCode == RESULT_OK && data != null) {
-                    mediaProjection = this.mediaProjectionManager.getMediaProjection(resultCode, data);
-                    startService(new Intent(MainActivity.this, FloatWindowsService.class));
+                    // Pass the MediaProjection data to the service instead of creating it here
+                    Intent serviceIntent = new Intent(MainActivity.this, FloatWindowsService.class);
+                    serviceIntent.putExtra("resultCode", resultCode);
+                    serviceIntent.putExtra("data", data);
+                    
+                    // Start as foreground service on Android 8.0+ (API 26+)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(serviceIntent);
+                    } else {
+                        startService(serviceIntent);
+                    }
                     moveTaskToBack(false);
                 }
                 break;
@@ -112,19 +121,10 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private static MediaProjection mediaProjection = null;
-    public static MediaProjection getMediaProjection() {
-        return mediaProjection;
-    }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
         stopService(new Intent(this, FloatWindowsService.class));
-        if (mediaProjection != null) {
-            mediaProjection.stop();
-            mediaProjection = null;
-        }
     }
 
     @Override
