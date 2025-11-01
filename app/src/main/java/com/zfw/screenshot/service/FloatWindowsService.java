@@ -1,6 +1,9 @@
 package com.zfw.screenshot.service;
 
 import android.annotation.TargetApi;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -11,6 +14,8 @@ import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.Image;
 import android.media.ImageReader;
+import android.media.projection.MediaProjection;
+import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -25,7 +30,8 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.ImageView;
 
-import com.zfw.screenshot.MainActivity;
+import androidx.core.app.NotificationCompat;
+
 import com.zfw.screenshot.R;
 import com.zfw.screenshot.utils.FileUtils;
 import com.zfw.screenshot.utils.ImageUtils;
@@ -42,8 +48,12 @@ import java.nio.ByteBuffer;
 @TargetApi(Build.VERSION_CODES.LOLLIPOP)
 public class FloatWindowsService extends Service implements EventListener {
     public static final String TAG = "FloatWindowsService";
+    private static final String CHANNEL_ID = "ScreenshotServiceChannel";
+    private static final int NOTIFICATION_ID = 1;
 
     private VirtualDisplay mVirtualDisplay;
+    private MediaProjection mediaProjection;
+    private MediaProjectionManager mediaProjectionManager;
 
     private ImageReader mImageReader;
     private WindowManager mWindowManager;
@@ -62,11 +72,64 @@ public class FloatWindowsService extends Service implements EventListener {
     public void onCreate() {
         super.onCreate();
 
+        // Create notification channel for foreground service
+        createNotificationChannel();
+
         touchWindow = new TouchWindow(getApplicationContext());
         touchWindow.setUpListener(this);
 
         createFloatView();
         createImageReader();
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        // Start foreground service on Android 14+ (API 34+)
+        if (Build.VERSION.SDK_INT >= 34) {
+            startForeground(NOTIFICATION_ID, createNotification(), 
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForeground(NOTIFICATION_ID, createNotification());
+        }
+
+        // Get MediaProjection data from intent
+        if (intent != null && intent.hasExtra("resultCode") && intent.hasExtra("data")) {
+            int resultCode = intent.getIntExtra("resultCode", -1);
+            Intent data = intent.getParcelableExtra("data");
+            
+            if (resultCode != -1 && data != null) {
+                mediaProjectionManager = (MediaProjectionManager) 
+                    getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, data);
+            }
+        }
+
+        return START_STICKY;
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                CHANNEL_ID,
+                "Screenshot Service",
+                NotificationManager.IMPORTANCE_LOW
+            );
+            channel.setDescription("Running screenshot service");
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
+    }
+
+    private Notification createNotification() {
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("截图服务")
+            .setContentText("长截图服务正在运行")
+            .setSmallIcon(R.drawable.logo)
+            .setPriority(NotificationCompat.PRIORITY_LOW);
+
+        return builder.build();
     }
 
     @Override
@@ -191,7 +254,11 @@ public class FloatWindowsService extends Service implements EventListener {
      * 最终得到当前屏幕的内容，注意这里mImageReader.getSurface()被传入，屏幕的数据也将会在ImageReader中的Surface中
      */
     private void virtualDisplay() {
-        mVirtualDisplay = MainActivity.getMediaProjection().createVirtualDisplay("screen-mirror",
+        if (mediaProjection == null) {
+            Log.e(TAG, "MediaProjection is null, cannot create virtual display");
+            return;
+        }
+        mVirtualDisplay = mediaProjection.createVirtualDisplay("screen-mirror",
                 mScreenWidth, mScreenHeight, mScreenDensity, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
                 mImageReader.getSurface(), null, null);
     }
@@ -307,6 +374,19 @@ public class FloatWindowsService extends Service implements EventListener {
             mWindowManager.removeView(mFloatView);
         }
         stopVirtual();
+        
+        // Clean up MediaProjection
+        if (mediaProjection != null) {
+            mediaProjection.stop();
+            mediaProjection = null;
+        }
+        
+        // Stop foreground service
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            stopForeground(STOP_FOREGROUND_REMOVE);
+        } else {
+            stopForeground(true);
+        }
     }
 
     @Override
