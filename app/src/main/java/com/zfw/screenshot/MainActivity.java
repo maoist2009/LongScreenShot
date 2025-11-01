@@ -100,8 +100,8 @@ public class MainActivity extends AppCompatActivity {
                     serviceIntent.putExtra("resultCode", resultCode);
                     serviceIntent.putExtra("data", data);
                     
-                    // Start as foreground service on Android 14+ (API 34+)
-                    if (Build.VERSION.SDK_INT >= 34) {
+                    // Start as foreground service on Android 8.0+ (API 26+)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         startForegroundService(serviceIntent);
                     } else {
                         startService(serviceIntent);
