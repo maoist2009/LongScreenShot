@@ -74,6 +74,10 @@ public class FloatWindowsService extends Service implements EventListener {
 
         // Create notification channel for foreground service
         createNotificationChannel();
+        
+        // Initialize MediaProjectionManager
+        mediaProjectionManager = (MediaProjectionManager) 
+            getSystemService(Context.MEDIA_PROJECTION_SERVICE);
 
         touchWindow = new TouchWindow(getApplicationContext());
         touchWindow.setUpListener(this);
@@ -97,9 +101,7 @@ public class FloatWindowsService extends Service implements EventListener {
             int resultCode = intent.getIntExtra("resultCode", -1);
             Intent data = intent.getParcelableExtra("data");
             
-            if (resultCode != -1 && data != null) {
-                mediaProjectionManager = (MediaProjectionManager) 
-                    getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+            if (resultCode != -1 && data != null && mediaProjectionManager != null) {
                 mediaProjection = mediaProjectionManager.getMediaProjection(resultCode, data);
             }
         }
